@@ -1,0 +1,32 @@
+---
+abstract: 'Declarative command line interface builder.'
+author:
+  - 'Chad Granum <exodist7@gmail.com>'
+build_requires:
+  Fennec: 1.012
+configure_requires:
+  Module::Build: 0.40
+dynamic_config: 1
+generated_by: 'Module::Build version 0.4003, CPAN::Meta::Converter version 2.120630'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Declare-CLI
+provides:
+  Declare::Args:
+    file: lib/Declare/Args.pm
+    version: 0.005
+  Declare::CLI:
+    file: lib/Declare/CLI.pm
+    version: 0.005
+  Declare::Opts:
+    file: lib/Declare/Opts.pm
+    version: 0.005
+requires:
+  Exporter::Declare: 0.105
+resources:
+  bugtracker: http://github.com/exodist/Declare-CLI
+  license: http://dev.perl.org/licenses/
+  repository: http://github.com/exodist/Declare-CLI
+version: 0.005
