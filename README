@@ -14,7 +14,7 @@ SYNOPSIS
         use warnings;
         use Your::Prog;
 
-        my @results = Your::Prog->new->process_cli( @ARGV );
+        my @results = Your::Prog->new->handle_cli( @ARGV );
 
         print join "\n", @results;
 
@@ -132,7 +132,35 @@ EXPORTS
 
         Get a usage string listing all options and arguments.
 
+    ( $opts, $args ) = preparse_cli( @cli )
+        Pre-process the command line. No triggers or transforms are called.
+        Only recognised options will be added to $opts. $args will contain
+        everything else. The primary use of this method is if you have an
+        option to specify a config file which may add additional options.
+        This lets you get the config file, then use the real parse() method
+        once everything is loaded from the config.
+
+    ( $opts, $args ) = $obj->parse_cli( @cli )
+        Must be used as an object method.
+
+        Process the command line in @cli. Methods for options (default, etc)
+        will be run against the $consumer object.
+
+    $result = $obj->run_cli( $opts, $args )
+        Must be used as an object method.
+
+        Run the provided opts and args combination. Handler methods will be
+        run on the $consumer object.
+
+    $result = $obj->handle_cli( @ARGS )
+        Must be used as an object method.
+
+        Combines parse() and run(). Replacement for "process_cli".
+
     $result = $obj->process_cli( @ARGS )
+        Note: Deprecated this functions interface was offensive. See
+        handle_cli() instead.
+
         Must be used as an object method.
 
         Process some command line input. If an argument is provided as input
@@ -162,7 +190,8 @@ OPTION PROPERTIES
     default => $VALUE
     default => sub { [ @VALUES ] }
         Specify the value that will be used by default when the option is
-        not listed on the command line.
+        not listed on the command line. The default sub is called as a
+        function with no arguments.
 
     description => $STRING
         Provide a description for the option. This is used in the 'usage'
@@ -262,7 +291,29 @@ META OBJECT METHODS
     $usage = $meta->usage
         Get the usage information.
 
+    ( $opts, $args ) = $meta->preparse( @cli )
+        Pre-process the command line. No triggers or transforms are called.
+        Only recognised options will be added to $opts. $args will contain
+        everything else. The primary use of this method is if you have an
+        option to specify a config file which may add additional options.
+        This lets you get the config file, then use the real parse() method
+        once everything is loaded from the config.
+
+    ( $opts, $args ) = $meta->parse( $INSTANCE, @cli )
+        Process the command line in @cli. Methods for options (default, etc)
+        will be run against the $INSTANCE object.
+
+    $result = $meta->run( $INSTANCE, $opts, $args )
+        Run the provided opts and args combination. Handler methods will be
+        run on the $INSTANCE object.
+
+    $result = $meta->handle( $INSTANCE, @cli )
+        Combines parse() and run(). Replacement for "process_cli".
+
+    $result = $meta->process( $INSTANCE, @ARGS )
     $result = $meta->process_cli( $INSTANCE, @ARGS )
+        Note: Deprecated This interface was offensive. See handle() instead.
+
         Process the command line arguments on $INSTANCE.
 
     $meta->describe( $TYPE, $NAME, $DESCRIPTION )

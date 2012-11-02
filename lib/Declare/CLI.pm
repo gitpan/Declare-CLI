@@ -12,7 +12,7 @@ use Exporter::Declare qw{
     default_export
 };
 
-our $VERSION = 0.005;
+our $VERSION = 0.006;
 
 gen_default_export CLI_META => sub {
     my ( $class, $caller ) = @_;
@@ -46,12 +46,13 @@ default_export usage => sub {
     $meta->usage( @params );
 };
 
-default_export process_cli => sub {
-    my $consumer = shift;
-    my ( @cli ) = @_;
-    my $meta = $consumer->CLI_META;
-    return $meta->process_cli( $consumer, @cli );
-};
+for my $name ( qw/ preparse parse process run handle / ) {
+    default_export "${name}_cli" => sub {
+        my $consumer = shift;
+        my $meta = $consumer->CLI_META;
+        return $meta->$name( $consumer, @_ );
+    }
+}
 
 sub _parse_params {
     my ($first, @params) = @_;
@@ -199,95 +200,6 @@ sub add_opt {
     $self->opts->{$name} = \%config;
 }
 
-sub process_cli {
-    my $self = shift;
-    my ( $consumer, @cli ) = @_;
-
-    my ( $opts, $args ) = $self->_parse_cli( @cli );
-
-    # Add defaults for opts not provided
-    for my $opt ( keys %{ $self->_defaults } ) {
-        next if exists $opts->{$opt};
-        my $val = $self->_defaults->{$opt};
-        $opts->{$opt} = ref $val ? $val->() : $val;
-    }
-
-    for my $opt ( keys %$opts ) {
-        my $values = $opts->{$opt};
-        my $list;
-
-        if ( ref $values && ref $values eq 'ARRAY' ) {
-            $list = 1;
-        }
-        else {
-            $list = 0;
-            $values = [ $values ];
-        }
-
-        my $transform = $self->opts->{$opt}->{transform};
-        my $trigger   = $self->opts->{$opt}->{trigger};
-
-        $values = [ map { $consumer->$transform( $_ ) } @$values ]
-            if $transform;
-
-        $self->_validate( $opt, $values );
-
-        $opts->{$opt} = $list ? $values : $values->[0];
-
-        $consumer->$trigger( $opt, $opts->{$opt}, $opts )
-            if $trigger;
-    }
-
-    $consumer->set_opts( $opts ) if $consumer->can( 'set_opts' );
-
-    return $opts unless @$args;
-
-    my $arg = shift @$args;
-    my $handler = $self->args->{$arg}->{handler};
-    return $consumer->$handler( $arg, $opts, @$args );
-}
-
-sub _parse_cli {
-    my $self = shift;
-    my ( @cli ) = @_;
-
-    my $args = [];
-    my $opts = {};
-    my $no_opts = 0;
-
-    while ( my $item = shift @cli ) {
-        if ( $item eq '--' ) {
-            $no_opts++;
-        }
-        elsif ( $item =~ m/^-+([^-=]+)(?:=(.+))?$/ && !$no_opts ) {
-            my ( $key, $value ) = ( $1, $2 );
-
-            my $name = $self->_item_name( 'option', $self->opts, $key );
-            $value = $self->_opt_value(
-                $name,
-                $value,
-                \@cli
-            );
-
-            if( $self->opts->{$name}->{list} ) {
-                push @{$opts->{$name}} => @$value;
-            }
-            else {
-                $opts->{$name} = $value;
-            }
-        }
-        elsif ( @$args ) {
-            push @$args => $item;
-        }
-        else {
-            # First item gets resolved
-            push @$args => $self->_item_name( 'argument', $self->args, $item );
-        }
-    }
-
-    return ( $opts, $args );
-}
-
 sub _opt_value {
     my $self = shift;
     my ( $opt, $value, $cli ) = @_;
@@ -337,28 +249,6 @@ sub _validate {
     die "Validation Failed for '$opt=$type': " . join( ", ", @bad ) . "\n";
 }
 
-sub _item_name {
-    my $self = shift;
-    my ( $type, $hash, $key ) = @_;
-
-    # Exact match
-    return $hash->{$key}->{name}
-        if $hash->{$key};
-
-    my %matches = map { $hash->{$_}->{name} => 1 }
-        grep { m/^$key/ }
-            keys %{ $hash };
-    my @matches = keys %matches;
-
-    die "partial $type '$key' is ambiguous, could be: " . join( ", " => sort @matches ) . "\n"
-        if @matches > 1;
-
-    die "unknown option '$key'\n"
-        unless @matches;
-
-    return $matches[0];
-}
-
 sub usage {
     my $self = shift;
 
@@ -401,6 +291,166 @@ $cmds
     EOT
 }
 
+sub preparse {
+    my $self = shift;
+    my ( @cli ) = @_;
+    return $self->_parse_cli( 'pre', @cli );
+}
+
+sub parse {
+    my $self = shift;
+    my ( $consumer, @cli ) = @_;
+    my ( $opts, $args ) = $self->_parse_cli( 0, @cli );
+    $self->_process_opts( $consumer, $opts );
+    return ( $opts, $args );
+}
+
+sub run {
+    my $self = shift;
+    my ( $consumer, $opts, $args ) = @_;
+
+    croak "No argument specified"
+        unless $args && @$args;
+
+    my $arg = $self->_item_name( 'argument', $self->args, shift( @$args ));
+
+    my $handler = $self->args->{$arg}->{handler};
+
+    croak "Invalid argument '$arg'"
+        unless $handler;
+
+    return $consumer->$handler( $arg, $opts, @$args );
+}
+
+sub handle {
+    my $self = shift;
+    my ( $consumer, @cli ) = @_;
+    my ( $opts, $args ) = $self->parse( @_ );
+    return $self->run( $consumer, $opts, $args );
+}
+
+sub process_cli { goto &process }
+sub process {
+    my $self = shift;
+    my ( $consumer, @cli ) = @_;
+
+    warn "process and process_cli are deprecated\n";
+
+    my ( $opts, $args ) = $self->parse( @_ );
+    $consumer->set_opts( $opts ) if $consumer->can( 'set_opts' );
+    $consumer->set_args( $args ) if $consumer->can( 'set_args' );
+
+    return $opts unless @$args
+        && $self->_item_name( 'argument', $self->args, $args->[0] );
+
+    return $self->run( $consumer, $opts, $args );
+}
+
+sub _parse_cli {
+    my $self = shift;
+    my ( $pre, @cli ) = @_;
+
+    my $args = [];
+    my $opts = {};
+    my $no_opts = 0;
+
+    while ( my $item = shift @cli ) {
+        my ( $opt, $value );
+
+        if ( $item eq '--' ) {
+            $no_opts++;
+            next;
+        }
+
+        if ( $item =~ m/^-+([^-=]+)(?:=(.+))?$/ && !$no_opts ) {
+            my $key = $1;
+            $value = $2;
+            $opt = $self->_item_name( 'option', $self->opts, $key );
+            die "unknown option '$key'\n" unless $pre || $opt;
+        }
+
+        # If we do not have an opt, push to args and go to next.
+        unless ( $opt ) {
+            push @$args => $item;
+            next;
+        }
+
+        $value = $self->_opt_value(
+            $opt,
+            $value,
+            \@cli
+        );
+
+        if( $self->opts->{$opt}->{list} ) {
+            push @{$opts->{$opt}} => @$value;
+        }
+        else {
+            $opts->{$opt} = $value;
+        }
+    }
+
+    # Add defaults for opts not provided
+    for my $opt ( keys %{ $self->_defaults } ) {
+        next if exists $opts->{$opt};
+        my $val = $self->_defaults->{$opt};
+        $opts->{$opt} = ref $val ? $val->() : $val;
+    }
+
+    return( $opts, $args );
+}
+
+sub _process_opts {
+    my $self = shift;
+    my ( $consumer, $opts ) = @_;
+
+    for my $opt ( keys %$opts ) {
+        my $values = $opts->{$opt};
+        my $list;
+
+        if ( ref $values && ref $values eq 'ARRAY' ) {
+            $list = 1;
+        }
+        else {
+            $list = 0;
+            $values = [ $values ];
+        }
+
+        my $transform = $self->opts->{$opt}->{transform};
+        my $trigger   = $self->opts->{$opt}->{trigger};
+
+        $values = [ map { $consumer->$transform( $_ ) } @$values ]
+            if $transform;
+
+        $self->_validate( $opt, $values );
+
+        $opts->{$opt} = $list ? $values : $values->[0];
+
+        $consumer->$trigger( $opt, $opts->{$opt}, $opts )
+            if $trigger;
+    }
+}
+
+sub _item_name {
+    my $self = shift;
+    my ( $type, $hash, $key ) = @_;
+
+    # Exact match
+    return $hash->{$key}->{name}
+        if $hash->{$key};
+
+    my %matches = map { $hash->{$_}->{name} => 1 }
+        grep { m/^$key/ }
+            keys %{ $hash };
+    my @matches = keys %matches;
+
+    die "partial $type '$key' is ambiguous, could be: " . join( ", " => sort @matches ) . "\n"
+        if @matches > 1;
+
+    return '' unless @matches;
+    return $matches[0];
+}
+
+
 1;
 
 __END__
@@ -426,7 +476,7 @@ your_prog.pl
     use warnings;
     use Your::Prog;
 
-    my @results = Your::Prog->new->process_cli( @ARGV );
+    my @results = Your::Prog->new->handle_cli( @ARGV );
 
     print join "\n", @results;
 
@@ -560,7 +610,38 @@ Can be used as function in class, or method on class/object.
 
 Get a usage string listing all options and arguments.
 
+=item ( $opts, $args ) = preparse_cli( @cli )
+
+Pre-process the command line. No triggers or transforms are called. Only
+recognised options will be added to $opts. $args will contain everything else.
+The primary use of this method is if you have an option to specify a config
+file which may add additional options. This lets you get the config file, then
+use the real parse() method once everything is loaded from the config.
+
+=item ( $opts, $args ) = $obj->parse_cli( @cli )
+
+Must be used as an object method.
+
+Process the command line in @cli. Methods for options (default, etc) will be
+run against the $consumer object.
+
+=item $result = $obj->run_cli( $opts, $args )
+
+Must be used as an object method.
+
+Run the provided opts and args combination. Handler methods will be run on the
+$consumer object.
+
+=item $result = $obj->handle_cli( @ARGS )
+
+Must be used as an object method.
+
+Combines parse() and run(). Replacement for C<process_cli>.
+
 =item $result = $obj->process_cli( @ARGS )
+
+B<Note: Deprecated> this functions interface was offensive. See handle_cli()
+instead.
 
 Must be used as an object method.
 
@@ -601,7 +682,7 @@ command line turns it off.
 =item default => sub { [ @VALUES ] }
 
 Specify the value that will be used by default when the option is not listed on
-the command line.
+the command line. The default sub is called as a function with no arguments.
 
 =item description => $STRING
 
@@ -730,7 +811,33 @@ Get a regex that can be used to validate the options available for opts.
 
 Get the usage information.
 
+=item ( $opts, $args ) = $meta->preparse( @cli )
+
+Pre-process the command line. No triggers or transforms are called. Only
+recognised options will be added to $opts. $args will contain everything else.
+The primary use of this method is if you have an option to specify a config
+file which may add additional options. This lets you get the config file, then
+use the real parse() method once everything is loaded from the config.
+
+=item ( $opts, $args ) = $meta->parse( $INSTANCE, @cli )
+
+Process the command line in @cli. Methods for options (default, etc) will be
+run against the $INSTANCE object.
+
+=item $result = $meta->run( $INSTANCE, $opts, $args )
+
+Run the provided opts and args combination. Handler methods will be run on the
+$INSTANCE object.
+
+=item $result = $meta->handle( $INSTANCE, @cli )
+
+Combines parse() and run(). Replacement for C<process_cli>.
+
+=item $result = $meta->process( $INSTANCE, @ARGS )
+
 =item $result = $meta->process_cli( $INSTANCE, @ARGS )
+
+B<Note: Deprecated> This interface was offensive. See handle() instead.
 
 Process the command line arguments on $INSTANCE.
 
