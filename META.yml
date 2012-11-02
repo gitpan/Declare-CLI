@@ -19,7 +19,7 @@ provides:
     version: 0.005
   Declare::CLI:
     file: lib/Declare/CLI.pm
-    version: 0.006
+    version: 0.007
   Declare::Opts:
     file: lib/Declare/Opts.pm
     version: 0.005
@@ -29,4 +29,4 @@ resources:
   bugtracker: http://github.com/exodist/Declare-CLI
   license: http://dev.perl.org/licenses/
   repository: http://github.com/exodist/Declare-CLI
-version: 0.006
+version: 0.007

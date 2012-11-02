@@ -12,7 +12,7 @@ use Exporter::Declare qw{
     default_export
 };
 
-our $VERSION = 0.006;
+our $VERSION = 0.007;
 
 gen_default_export CLI_META => sub {
     my ( $class, $caller ) = @_;
@@ -312,14 +312,15 @@ sub run {
     croak "No argument specified"
         unless $args && @$args;
 
-    my $arg = $self->_item_name( 'argument', $self->args, shift( @$args ));
+    my $arg = shift @$args;
+    my $name = $self->_item_name( 'argument', $self->args, $arg );
 
-    my $handler = $self->args->{$arg}->{handler};
+    my $handler = $self->args->{$name}->{handler};
 
     croak "Invalid argument '$arg'"
         unless $handler;
 
-    return $consumer->$handler( $arg, $opts, @$args );
+    return $consumer->$handler( $name, $opts, @$args );
 }
 
 sub handle {
