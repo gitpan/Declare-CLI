@@ -35,7 +35,7 @@ tests simple => sub {
     is_deeply( $opts, { foo => 'zoot', bar => 'a', baz => 'b' }, "got flags" );
 
     ok( !eval { parse_opts( '-b' => 'xxx' ); 1 }, "Ambiguity" );
-    like( $@, qr/option 'b' is ambiguous, could be: bar, baz/, "Ambiguity Message" );
+    like( $@, qr/option 'b' is ambiguous, could be: (bar|baz), (bar|baz)/, "Ambiguity Message" );
 
     ok( !eval { parse_opts( '-x' => 'xxx' ); 1 }, "Invalid" );
     like( $@, qr/unknown option 'x'/, "Invalid Message" );
@@ -169,5 +169,4 @@ tests transform => sub {
     );
 };
 
-1;
-
+done_testing;

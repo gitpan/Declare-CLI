@@ -12,7 +12,7 @@ use Exporter::Declare qw{
     default_export
 };
 
-our $VERSION = 0.007;
+our $VERSION = 0.008;
 
 gen_default_export CLI_META => sub {
     my ( $class, $caller ) = @_;
@@ -22,46 +22,46 @@ gen_default_export CLI_META => sub {
 };
 
 default_export arg => sub {
-    my ( $meta, @params ) = _parse_params( @_ );
-    $meta->add_arg( @params );
+    my ( $meta, @params ) = _parse_params(@_);
+    $meta->add_arg(@params);
 };
 
 default_export opt => sub {
-    my ( $meta, @params ) = _parse_params( @_ );
-    $meta->add_opt( @params );
+    my ( $meta, @params ) = _parse_params(@_);
+    $meta->add_opt(@params);
 };
 
 default_export describe_opt => sub {
-    my ( $meta, @params ) = _parse_params( @_ );
+    my ( $meta, @params ) = _parse_params(@_);
     $meta->describe( 'opt' => @params );
 };
 
 default_export describe_arg => sub {
-    my ( $meta, @params ) = _parse_params( @_ );
+    my ( $meta, @params ) = _parse_params(@_);
     $meta->describe( 'arg' => @params );
 };
 
 default_export usage => sub {
-    my ( $meta, @params ) = _parse_params( @_ );
-    $meta->usage( @params );
+    my ( $meta, @params ) = _parse_params(@_);
+    $meta->usage(@params);
 };
 
-for my $name ( qw/ preparse parse process run handle / ) {
+for my $name (qw/ preparse parse process run handle /) {
     default_export "${name}_cli" => sub {
         my $consumer = shift;
-        my $meta = $consumer->CLI_META;
+        my $meta     = $consumer->CLI_META;
         return $meta->$name( $consumer, @_ );
-    }
+    };
 }
 
 sub _parse_params {
-    my ($first, @params) = @_;
+    my ( $first, @params ) = @_;
 
-    my $ref = ref $first;
+    my $ref  = ref $first;
     my $type = blessed $first;
 
     return ( $first->CLI_META, @params )
-        if ($type || !$ref) && eval { $first->can( 'CLI_META' ) };
+        if ( $type || !$ref ) && eval { $first->can('CLI_META') };
 
     my $meta = eval { caller(2)->CLI_META };
     croak "Could not find meta data object: $@"
@@ -70,21 +70,19 @@ sub _parse_params {
     return ( $meta, @_ );
 }
 
-sub class { shift->{class} }
-sub args { shift->{args}  }
-sub opts { shift->{opts}  }
-sub _defaults { shift->{defaults}  }
+sub class     { shift->{class} }
+sub args      { shift->{args} }
+sub opts      { shift->{opts} }
+sub _defaults { shift->{defaults} }
 
 sub new {
-    my $class = shift;
+    my $class  = shift;
     my %params = @_;
-    my $self = bless { args => {}, opts => {}, defaults => {} } => $class;
+    my $self   = bless {args => {}, opts => {}, defaults => {}} => $class;
 
-    $self->add_arg( $_ => $params{args}->{$_} )
-        for keys %{ $params{args} || {} };
+    $self->add_arg( $_ => $params{args}->{$_} ) for keys %{$params{args} || {}};
 
-    $self->add_arg( $_ => $params{opts}->{$_} )
-        for keys %{ $params{opts} || {} };
+    $self->add_arg( $_ => $params{opts}->{$_} ) for keys %{$params{opts} || {}};
 
     return $self;
 }
@@ -109,7 +107,7 @@ sub valid_arg_params {
 sub add_arg {
     my $self = shift;
     my ( $name, @params ) = @_;
-    my %config = @params > 1 ? @params : (handler => $params[0]);
+    my %config = @params > 1 ? @params : ( handler => $params[0] );
 
     croak "arg '$name' already defined"
         if $self->args->{$name};
@@ -126,12 +124,14 @@ sub add_arg {
         unless $config{handler};
 
     if ( exists $config{alias} ) {
-        my $aliases = ref $config{alias} ?   $config{alias}
-                                         : [ $config{alias} ];
+        my $aliases =
+            ref $config{alias}
+            ? $config{alias}
+            : [$config{alias}];
 
-        $config{_alias} = { map { $_ => 1 } @$aliases };
+        $config{_alias} = {map { $_ => 1 } @$aliases};
 
-        for my $alias ( @$aliases ) {
+        for my $alias (@$aliases) {
             croak "Cannot use alias '$alias', name is already taken by another arg."
                 if $self->args->{$alias};
 
@@ -170,7 +170,7 @@ sub add_opt {
     croak "opt properties 'list' and 'bool' are mutually exclusive"
         if $config{list} && $config{bool};
 
-    if (exists $config{default}) {
+    if ( exists $config{default} ) {
         croak "References cannot be used in default, wrap them in a sub."
             if ref $config{default} && ref $config{default} ne 'CODE';
         $self->_defaults->{$name} = $config{default};
@@ -179,17 +179,19 @@ sub add_opt {
     if ( exists $config{check} ) {
         my $ref = ref $config{check};
         croak "'$config{check}' is not a valid value for 'check'"
-            if ($ref && $ref !~ m/^(CODE|Regexp)$/)
-            || (!$ref && $config{check} !~ m/^(file|dir|number)$/);
+            if ( $ref && $ref !~ m/^(CODE|Regexp)$/ )
+            || ( !$ref && $config{check} !~ m/^(file|dir|number)$/ );
     }
 
     if ( exists $config{alias} ) {
-        my $aliases = ref $config{alias} ?   $config{alias}
-                                         : [ $config{alias} ];
+        my $aliases =
+            ref $config{alias}
+            ? $config{alias}
+            : [$config{alias}];
 
-        $config{_alias} = { map { $_ => 1 } @$aliases };
+        $config{_alias} = {map { $_ => 1 } @$aliases};
 
-        for my $alias ( @$aliases ) {
+        for my $alias (@$aliases) {
             croak "Cannot use alias '$alias', name is already taken by another opt."
                 if $self->opts->{$alias};
 
@@ -213,8 +215,9 @@ sub _opt_value {
 
     my $val = defined $value ? $value : shift @$cli;
 
-    return $spec->{list} ? [ split /\s*,\s*/, $val ]
-                         : $val;
+    return $spec->{list}
+        ? [split /\s*,\s*/, $val]
+        : $val;
 }
 
 sub _validate {
@@ -232,13 +235,13 @@ sub _validate {
         @bad = grep { $_ !~ $check } @$value;
     }
     elsif ( $ref eq 'CODE' ) {
-        @bad = grep { !$check->( $_ ) } @$value;
+        @bad = grep { !$check->($_) } @$value;
     }
     elsif ( $check eq 'file' ) {
-        @bad = grep { ! -f $_ } @$value;
+        @bad = grep { !-f $_ } @$value;
     }
     elsif ( $check eq 'dir' ) {
-        @bad = grep { ! -d $_ } @$value;
+        @bad = grep { !-d $_ } @$value;
     }
     elsif ( $check eq 'number' ) {
         @bad = grep { m/\D/ } @$value;
@@ -252,13 +255,13 @@ sub _validate {
 sub usage {
     my $self = shift;
 
-    my $arg_len = max map { length $_ } keys %{ $self->args };
-    my $opt_len = max map { length $_ } keys %{ $self->opts };
+    my $arg_len = max map { length $_ } keys %{$self->args};
+    my $opt_len = max map { length $_ } keys %{$self->opts};
 
     my %seen;
     my $opts = join "\n" => sort map {
-        my $spec = $self->opts->{$_};
-        my $name = $spec->{name};
+        my $spec  = $self->opts->{$_};
+        my $name  = $spec->{name};
         my $value = $spec->{bool} ? "" : $spec->{list} ? "XXX,..." : "XXX";
 
         $seen{$name}++ ? () : sprintf(
@@ -267,7 +270,7 @@ sub usage {
             $value,
             $spec->{description}
         );
-    } keys %{ $self->opts };
+    } keys %{$self->opts};
 
     %seen = ();
     my $cmds = join "\n" => sort map {
@@ -279,7 +282,7 @@ sub usage {
             $name,
             $spec->{description}
         );
-    } keys %{ $self->args };
+    } keys %{$self->args};
 
     return <<"    EOT";
 Options:
@@ -293,7 +296,7 @@ $cmds
 
 sub preparse {
     my $self = shift;
-    my ( @cli ) = @_;
+    my (@cli) = @_;
     return $self->_parse_cli( 'pre', @cli );
 }
 
@@ -325,23 +328,25 @@ sub run {
 
 sub handle {
     my $self = shift;
-    my ( $consumer, @cli ) = @_;
-    my ( $opts, $args ) = $self->parse( @_ );
+    my ( $consumer, @cli )  = @_;
+    my ( $opts,     $args ) = $self->parse(@_);
     return $self->run( $consumer, $opts, $args );
 }
 
 sub process_cli { goto &process }
+
 sub process {
     my $self = shift;
     my ( $consumer, @cli ) = @_;
 
     warn "process and process_cli are deprecated\n";
 
-    my ( $opts, $args ) = $self->parse( @_ );
-    $consumer->set_opts( $opts ) if $consumer->can( 'set_opts' );
-    $consumer->set_args( $args ) if $consumer->can( 'set_args' );
+    my ( $opts, $args ) = $self->parse(@_);
+    $consumer->set_opts($opts) if $consumer->can('set_opts');
+    $consumer->set_args($args) if $consumer->can('set_args');
 
-    return $opts unless @$args
+    return $opts
+        unless @$args
         && $self->_item_name( 'argument', $self->args, $args->[0] );
 
     return $self->run( $consumer, $opts, $args );
@@ -351,8 +356,8 @@ sub _parse_cli {
     my $self = shift;
     my ( $pre, @cli ) = @_;
 
-    my $args = [];
-    my $opts = {};
+    my $args    = [];
+    my $opts    = {};
     my $no_opts = 0;
 
     while ( my $item = shift @cli ) {
@@ -371,7 +376,7 @@ sub _parse_cli {
         }
 
         # If we do not have an opt, push to args and go to next.
-        unless ( $opt ) {
+        unless ($opt) {
             push @$args => $item;
             next;
         }
@@ -382,7 +387,7 @@ sub _parse_cli {
             \@cli
         );
 
-        if( $self->opts->{$opt}->{list} ) {
+        if ( $self->opts->{$opt}->{list} ) {
             push @{$opts->{$opt}} => @$value;
         }
         else {
@@ -391,13 +396,13 @@ sub _parse_cli {
     }
 
     # Add defaults for opts not provided
-    for my $opt ( keys %{ $self->_defaults } ) {
+    for my $opt ( keys %{$self->_defaults} ) {
         next if exists $opts->{$opt};
         my $val = $self->_defaults->{$opt};
         $opts->{$opt} = ref $val ? $val->() : $val;
     }
 
-    return( $opts, $args );
+    return ( $opts, $args );
 }
 
 sub _process_opts {
@@ -412,14 +417,14 @@ sub _process_opts {
             $list = 1;
         }
         else {
-            $list = 0;
-            $values = [ $values ];
+            $list   = 0;
+            $values = [$values];
         }
 
         my $transform = $self->opts->{$opt}->{transform};
         my $trigger   = $self->opts->{$opt}->{trigger};
 
-        $values = [ map { $consumer->$transform( $_ ) } @$values ]
+        $values = [map { $consumer->$transform($_) } @$values]
             if $transform;
 
         $self->_validate( $opt, $values );
@@ -441,7 +446,7 @@ sub _item_name {
 
     my %matches = map { $hash->{$_}->{name} => 1 }
         grep { m/^$key/ }
-            keys %{ $hash };
+        keys %{$hash};
     my @matches = keys %matches;
 
     die "partial $type '$key' is ambiguous, could be: " . join( ", " => sort @matches ) . "\n"
@@ -450,7 +455,6 @@ sub _item_name {
     return '' unless @matches;
     return $matches[0];
 }
-
 
 1;
 

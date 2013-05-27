@@ -275,7 +275,7 @@ tests transform_and_trigger => sub {
 describe legacy => sub {
     tests simple => sub {
         my $self = shift;
-    
+
         my $saw = {};
         arg '-tub' => sub {
             is( $_[0], $self, "got self" );
@@ -283,11 +283,11 @@ describe legacy => sub {
             is( ref( $_[2] ), 'HASH', "got opts hash" );
             $saw->{tub} = 1;
         };
-    
+
         opt 'foo';
         opt 'bar';
         opt 'baz';
-    
+
         $self->process_cli(
             '--foo=zoot',
             '-bar' => 'a',
@@ -296,26 +296,26 @@ describe legacy => sub {
             '-tub',
             'blug'
         );
-    
+
         is_deeply( $saw, { tub => 1 }, "Args handled properly" );
         is_deeply( $self->opts, { foo => 'zoot', bar => 'a', baz => 'b' }, "got opts" );
-    
+
         arg xxxa => sub { 1 };
         arg xxxb => sub { 1 };
-    
+
         ok( !eval { $self->process_cli( 'xxx' ); 1 }, "Ambiguity" );
         like( $@, qr/partial argument 'xxx' is ambiguous, could be: xxxa, xxxb/, "Ambiguity Message" );
-    
+
         ok( !eval { $self->process_cli( '-b' => 'xxx' ); 1 }, "Ambiguity" );
         like( $@, qr/partial option 'b' is ambiguous, could be: bar, baz/, "Ambiguity Message" );
-    
+
         ok( !eval { $self->process_cli( '-x' => 'xxx' ); 1 }, "Invalid" );
         like( $@, qr/unknown option 'x'/, "Invalid Message" );
     };
-    
+
     tests complex => sub {
         my $self = shift;
-    
+
         my $saw = {};
         arg 'zubba' => (
             alias => '-tubb',
@@ -329,16 +329,16 @@ describe legacy => sub {
             }
         );
         arg 'blug' => sub { $saw->{blug} = 1 };
-    
+
         opt foo => ( bool => 1 );
         opt bar => ( list => 1 );
         opt baz => ( alias => 'zag' );
         opt buz => ( bool => 1, default => 1 );
         opt tin => ( default => 'fred', alias => ['tinn', 'tinnn'] );
-    
+
         ok( !eval { opt boot => ( bool => 1, list => 1 ); 1 }, "invalid props" );
         like( $@, qr/opt properties 'list' and 'bool' are mutually exclusive/, "invalid prop message" );
-    
+
         $self->process_cli(
             '-f',
             '--bar' => 'a,b,c, d , e',
@@ -349,7 +349,7 @@ describe legacy => sub {
             'blug',
             'foo',
         );
-    
+
         is_deeply( $saw, { tub => 1 }, "Args handled properly" );
         is_deeply(
             $self->opts,
@@ -362,14 +362,14 @@ describe legacy => sub {
             },
             "got opts"
         );
-    
+
         $self->process_cli(
             '-f=0',
             '-buz',
             '--tinnn',
             "din dan"
         );
-    
+
         is_deeply(
             $self->opts,
             {
@@ -380,22 +380,22 @@ describe legacy => sub {
             "change default"
         );
     };
-    
+
     tests validation => sub {
         my $self = shift;
-    
+
         opt code   => ( check => sub { $_[0] eq 'food' });
         opt number => ( check => 'number', list => 1    );
         opt dir    => ( check => 'dir',    list => 1    );
         opt regex  => ( check => qr/^AAA/               );
         opt file   => ( check => 'file'                 );
-    
+
         ok( !eval { opt bad1 => ( check => "foo" ); 1 }, "invalid check (string)" );
         like( $@, qr/'foo' is not a valid value for 'check'/, "invalid check message" );
-    
+
         ok( !eval { opt bad2 => ( check => []    ); 1 }, "invalid check (ref)" );
         like( $@, qr/'ARRAY\(0x[\da-fA-F]*\)' is not a valid value for 'check'/, "invalid check message" );
-    
+
         lives_ok { $self->process_cli(
             '-code=food',
             '--regex' => 'AAA Whatever',
@@ -403,28 +403,28 @@ describe legacy => sub {
             '-file'   => __FILE__,
             '-dir'    => '., ..',
         ) } "Valid opts";
-    
+
         ok( !eval { $self->process_cli( '--code=tub' ); 1 }, "fail check (code)" );
         like( $@, qr/Validation Failed for 'code=CODE': tub/, "fail check message (code)" );
-    
+
         ok( !eval { $self->process_cli( '-regex' => 'Whatever' ); 1 }, "fail check (regex)" );
         like( $@, qr/Validation Failed for 'regex=Regexp': Whatever/, "fail check message (regex)" );
-    
+
         ok( !eval { $self->process_cli( '--number' => 'a,b,1,2'); 1 }, "fail check (number)" );
         like( $@, qr/Validation Failed for 'number=number': a, b/, "fail check message (number)" );
-    
+
         ok( !eval { $self->process_cli( '-file' => '/Some/Fake/File' ); 1 }, "fail check (file)" );
         like( $@, qr{Validation Failed for 'file=file': /Some/Fake/File}, "fail check message (file)" );
-    
+
         ok( !eval { $self->process_cli( '-dir' => '/Some/Fake/Dir,/Another/Fake/Dir,.,..' ); 1 }, "fail check (dir)" );
         like( $@, qr{Validation Failed for 'dir=dir': /Some/Fake/Dir, /Another/Fake/Dir}, "fail check message (dir)" );
     };
-    
+
     tests transform_and_trigger => sub {
         my $self = shift;
-    
+
         my %triggered;
-    
+
         opt add5 => (
             transform => sub { $_[1] + 5 },
             check => 'number',
@@ -446,14 +446,14 @@ describe legacy => sub {
                 $triggered{$_[1]}++;
             },
         );
-    
+
         $self->process_cli(
             '-add5' => '5',
             '-add6' => '1,2,3',
         );
-    
+
         is_deeply( \%triggered, { add5 => 1, add6 => 1 }, "triggers fired" );
-    
+
         is_deeply(
             $self->opts,
             {
@@ -465,5 +465,5 @@ describe legacy => sub {
     };
 };
 
-1;
+done_testing;
 

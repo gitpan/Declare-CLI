@@ -4,7 +4,7 @@
       "Chad Granum <exodist7@gmail.com>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.4003, CPAN::Meta::Converter version 2.120630",
+   "generated_by" : "Module::Build version 0.4003, CPAN::Meta::Converter version 2.120921",
    "license" : [
       "perl_5"
    ],
@@ -16,7 +16,9 @@
    "prereqs" : {
       "build" : {
          "requires" : {
-            "Fennec" : "1.012"
+            "Fennec" : "2.004",
+            "Fennec::Declare" : "1.001",
+            "Parallel::Runner" : "0"
          }
       },
       "configure" : {
@@ -37,7 +39,7 @@
       },
       "Declare::CLI" : {
          "file" : "lib/Declare/CLI.pm",
-         "version" : "0.007"
+         "version" : "0.008"
       },
       "Declare::Opts" : {
          "file" : "lib/Declare/Opts.pm",
@@ -56,5 +58,5 @@
          "url" : "http://github.com/exodist/Declare-CLI"
       }
    },
-   "version" : "0.007"
+   "version" : "0.008"
 }
